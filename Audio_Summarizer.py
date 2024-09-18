@@ -5,6 +5,7 @@ import tempfile
 from dotenv import load_dotenv
 import time
 import json
+import pandas as pd
 
 # Load environment variables
 load_dotenv()
@@ -88,15 +89,21 @@ def main():
                         st.subheader("Call Analysis:")
                         try:
                             analysis_dict = json.loads(analysis)
-                            summary = analysis_dict.pop("summary", "No summary available.")
-                            st.write(summary)
                             
-                            st.subheader("Call Quality Metrics:")
-                            metrics_df = pd.DataFrame.from_dict(analysis_dict, orient='index', columns=['Value'])
+                            # Display Call Summary
+                            st.write("### Call Summary")
+                            st.write(analysis_dict.get("summary", "No summary available."))
+                            
+                            # Display Call Quality Metrics
+                            st.write("### Call Quality Metrics")
+                            metrics = {k: v for k, v in analysis_dict.items() if k != "summary"}
+                            metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=['Value'])
+                            metrics_df.index.name = 'Metric'
                             st.table(metrics_df)
+                            
                         except json.JSONDecodeError:
                             st.error("Failed to parse the analysis results. Displaying raw output:")
-                            st.write(analysis)
+                            st.code(analysis, language="json")
                     else:
                         st.error("Failed to process the audio file. Please try again.")
                 
@@ -106,4 +113,3 @@ def main():
                     os.unlink(temp_file_path)
 
 if __name__ == "__main__":
-    main()
