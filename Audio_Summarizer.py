@@ -19,8 +19,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 st.markdown("""
 <style>
 .transcript-container {
-    background-color: #2b2b2b;
-    color: #ffffff;
+    background-color: #f0f0f0;
     padding: 10px;
     border-radius: 5px;
     max-height: 500px;
@@ -31,10 +30,10 @@ st.markdown("""
     font-family: monospace;
 }
 .agent {
-    color: #63c5da;
+    color: #0066cc;
 }
 .student {
-    color: #98fb98;
+    color: #006600;
 }
 table {
     width: 100%;
@@ -46,12 +45,7 @@ th, td {
     text-align: left;
 }
 th {
-    background-color: #4a4a4a;
-    color: white;
-}
-td {
-    background-color: #2b2b2b;
-    color: #ffffff;
+    background-color: #f2f2f2;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -63,18 +57,15 @@ def format_transcript(transcript):
         match = re.match(r'(Agent|Student): (.+) \((\d+:\d+)-(\d+:\d+)\)', line)
         if match:
             speaker, content, start_time, end_time = match.groups()
-            formatted_html += f'<div class="transcript-line {speaker.lower()}"><strong>{speaker}:</strong> {content} <span style="color: #888;">({start_time}-{end_time})</span></div>'
+            formatted_html += f'<div class="transcript-line {speaker.lower()}"><strong>{speaker}:</strong> {content} <span style="color: #666;">({start_time}-{end_time})</span></div>'
     formatted_html += '</div>'
     return formatted_html
 
 def process_audio(audio_file):
     try:
-        st.text("Uploading file...")
         uploaded_file = genai.upload_file(audio_file)
-        st.text("File uploaded successfully.")
         model = genai.GenerativeModel('models/gemini-1.5-pro')
         
-        st.text("Generating transcript...")
         transcript_prompt = """
         Transcribe the following audio file completely and accurately.
         Format the transcript as a conversation between Agent and Student.
@@ -85,9 +76,7 @@ def process_audio(audio_file):
         """
         transcript_response = model.generate_content([transcript_prompt, uploaded_file])
         transcript_text = transcript_response.text
-        st.text("Transcript generated successfully.")
         
-        st.text("Analyzing call...")
         analysis_prompt = """
         Based on the following customer support call transcript, please provide:
         1. A brief summary of the call (2-3 sentences)
@@ -107,11 +96,9 @@ def process_audio(audio_file):
         Include a separate section for the call summary.
         Ensure the HTML is properly formatted and can be directly rendered in a web page.
         Use <th> for table headers and <td> for table data.
-        Include a table header row with 'Parameter' and 'Value' as column headers.
         """
         analysis_response = model.generate_content([analysis_prompt, transcript_text])
         analysis_html = analysis_response.text
-        st.text("Analysis completed.")
         
         return transcript_text, analysis_html
     except Exception as e:
@@ -133,45 +120,42 @@ def main():
             with col1:
                 st.subheader("Transcript")
                 transcript_placeholder = st.empty()
+                with transcript_placeholder:
+                    with st.spinner("Generating transcript..."):
+                        time.sleep(0.1)  # Ensure spinner is displayed
 
             with col2:
                 st.subheader("Call Analysis")
                 analysis_placeholder = st.empty()
-
-            progress_bar = st.progress(0)
+                with analysis_placeholder:
+                    with st.spinner("Analyzing call..."):
+                        time.sleep(0.1)  # Ensure spinner is displayed
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+                temp_file.write(uploaded_file.getvalue())
+                temp_file_path = temp_file.name
             
             try:
-                # Create a temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
-                    temp_file.write(uploaded_file.getvalue())
-                    temp_file_path = temp_file.name
-
-                for i in range(101):
-                    time.sleep(0.01)
-                    progress_bar.progress(i)
-                
-                # Pass the file path to process_audio
-                with open(temp_file_path, 'rb') as audio_file:
-                    transcript_text, analysis_html = process_audio(audio_file)
+                start_time = time.time()
+                transcript_text, analysis_html = process_audio(temp_file_path)
+                end_time = time.time()
                 
                 if transcript_text and analysis_html:
+                    st.success(f"Analysis completed in {end_time - start_time:.2f} seconds.")
+                    
                     with transcript_placeholder:
                         formatted_transcript = format_transcript(transcript_text)
                         st.markdown(formatted_transcript, unsafe_allow_html=True)
                     
                     with analysis_placeholder:
                         st.markdown(analysis_html, unsafe_allow_html=True)
-                    
-                    st.success("Analysis completed successfully!")
                 else:
                     st.error("Failed to process the audio file. Please try again.")
             
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
             finally:
-                progress_bar.empty()
-                if 'temp_file_path' in locals():
-                    os.unlink(temp_file_path)
+                os.unlink(temp_file_path)
 
 if __name__ == "__main__":
     main()
