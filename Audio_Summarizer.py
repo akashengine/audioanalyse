@@ -50,41 +50,35 @@ thead {
 </style>
 """, unsafe_allow_html=True)
 
-
-def process_audio_chunk(_audio_content, prompt):
-    try:
-        model = genai.GenerativeModel('models/gemini-1.5-pro')
-        response = model.generate_content([prompt, _audio_content])
-        return response.text
-    except Exception as e:
-        st.error(f"Error in API call: {str(e)}")
-        return None
-
 def process_audio(audio_file):
     try:
-        audio_content = audio_file.read()
+        uploaded_file = genai.upload_file(audio_file)
+        model = genai.GenerativeModel('models/gemini-1.5-pro')
         
         transcript_prompt = """
-        Transcribe the following audio file completely and accurately.
-        Format the transcript as a conversation between Agent and Student.
-        Preserve any Hindi text in Devanagari script, and use English for English speech.
-        Do not include any timestamps in the output.
-        Return the transcript as HTML with the following structure:
-        <div class="transcript-container">
-            <div class="transcript-line agent/student">
-                <span class="speaker">Speaker:</span>
-                <span class="content">content</span>
+            Transcribe the following audio file completely and accurately.
+            Format the transcript as a conversation between Agent and Student.
+            Preserve any Hindi text in Devanagari script, and use English for English speech.
+            Do not include any timestamps in the output.
+            Return the transcript as HTML with the following structure:
+            <div class="transcript-container">
+                <div class="transcript-line agent/student">
+                    <span class="speaker">Speaker:</span>
+                    <span class="content">content</span>
+                </div>
+                <!-- Repeat for each line of dialogue -->
             </div>
-            <!-- Repeat for each line of dialogue -->
-        </div>
-        Use the "agent" class for Agent lines and "student" class for Student lines.
+            Use the "agent" class for Agent lines and "student" class for Student lines.
+            Ensure each line of dialogue is in a separate div with the appropriate class.
         """
+        transcript_response = model.generate_content([transcript_prompt, uploaded_file])
+        transcript_html = transcript_response.text
         
         analysis_prompt = """
         Based on the following customer support call transcript, please provide:
         1. A brief summary of the call (2-3 sentences)
         2. Analyze the call based on the following fixed parameters:
-           - Call Duration (estimate based on the conversation)
+           - Call Duration
            - Customer Name
            - Customer ID/Batch
            - Product/Service
@@ -96,10 +90,6 @@ def process_audio(audio_file):
            - Customer Sentiment
         
         Provide the analysis as an HTML table with the following structure:
-        <div class="call-summary">
-            <h3>Call Summary</h3>
-            <p>Summary text here</p>
-        </div>
         <table>
             <thead>
                 <tr>
@@ -115,15 +105,14 @@ def process_audio(audio_file):
             </tbody>
         </table>
         
+        Include a separate section for the call summary:
+        <h3>Call Summary</h3>
+        <p>Summary text here</p>
+        
         Ensure the HTML is properly formatted and can be directly rendered in a web page.
         """
-        
-        with st.spinner("Processing audio..."):
-            transcript_html = process_audio_chunk(audio_content, transcript_prompt)
-            if transcript_html:
-                analysis_html = process_audio_chunk(audio_content, analysis_prompt)
-            else:
-                analysis_html = None
+        analysis_response = model.generate_content([analysis_prompt, transcript_html])
+        analysis_html = analysis_response.text
         
         return transcript_html, analysis_html
     except Exception as e:
