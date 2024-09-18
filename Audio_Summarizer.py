@@ -44,22 +44,11 @@ th, td {
     padding: 8px;
     text-align: left;
 }
-th {
+thead {
     background-color: #f2f2f2;
 }
 </style>
 """, unsafe_allow_html=True)
-
-def format_transcript(transcript):
-    lines = transcript.split('\n')
-    formatted_html = '<div class="transcript-container">'
-    for line in lines:
-        match = re.match(r'(Agent|Student): (.+) \((\d+:\d+)-(\d+:\d+)\)', line)
-        if match:
-            speaker, content, start_time, end_time = match.groups()
-            formatted_html += f'<div class="transcript-line {speaker.lower()}"><strong>{speaker}:</strong> {content} <span style="color: #666;">({start_time}-{end_time})</span></div>'
-    formatted_html += '</div>'
-    return formatted_html
 
 def process_audio(audio_file):
     try:
@@ -71,11 +60,19 @@ def process_audio(audio_file):
         Format the transcript as a conversation between Agent and Student.
         Preserve any Hindi text in Devanagari script, and use English for English speech.
         Include start and end timestamps for each dialogue line in the format (MM:SS-MM:SS).
-        Return the transcript as plain text with each line in the format:
-        Speaker: content (start_time-end_time)
+        Return the transcript as HTML with the following structure:
+        <div class="transcript-container">
+            <div class="transcript-line agent/student">
+                <span class="speaker">Speaker:</span>
+                <span class="content">content</span>
+                <span class="timestamp">(start_time-end_time)</span>
+            </div>
+            <!-- Repeat for each line of dialogue -->
+        </div>
+        Use the "agent" class for Agent lines and "student" class for Student lines.
         """
         transcript_response = model.generate_content([transcript_prompt, uploaded_file])
-        transcript_text = transcript_response.text
+        transcript_html = transcript_response.text
         
         analysis_prompt = """
         Based on the following customer support call transcript, please provide:
@@ -92,15 +89,32 @@ def process_audio(audio_file):
            - Customer Effort
            - Customer Sentiment
         
-        Provide the analysis as an HTML table with appropriate styling. 
-        Include a separate section for the call summary.
+        Provide the analysis as an HTML table with the following structure:
+        <table>
+            <thead>
+                <tr>
+                    <th colspan="2">Call Analysis</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                </tr>
+                <!-- Repeat for each parameter -->
+            </tbody>
+        </table>
+        
+        Include a separate section for the call summary:
+        <h3>Call Summary</h3>
+        <p>Summary text here</p>
+        
         Ensure the HTML is properly formatted and can be directly rendered in a web page.
-        Use <th> for table headers and <td> for table data.
         """
-        analysis_response = model.generate_content([analysis_prompt, transcript_text])
+        analysis_response = model.generate_content([analysis_prompt, transcript_html])
         analysis_html = analysis_response.text
         
-        return transcript_text, analysis_html
+        return transcript_html, analysis_html
     except Exception as e:
         st.error(f"Error in process_audio: {str(e)}")
         return None, None
@@ -137,15 +151,14 @@ def main():
             
             try:
                 start_time = time.time()
-                transcript_text, analysis_html = process_audio(temp_file_path)
+                transcript_html, analysis_html = process_audio(temp_file_path)
                 end_time = time.time()
                 
-                if transcript_text and analysis_html:
+                if transcript_html and analysis_html:
                     st.success(f"Analysis completed in {end_time - start_time:.2f} seconds.")
                     
                     with transcript_placeholder:
-                        formatted_transcript = format_transcript(transcript_text)
-                        st.markdown(formatted_transcript, unsafe_allow_html=True)
+                        st.markdown(transcript_html, unsafe_allow_html=True)
                     
                     with analysis_placeholder:
                         st.markdown(analysis_html, unsafe_allow_html=True)
