@@ -67,13 +67,14 @@ def format_transcript(transcript):
     formatted_html += '</div>'
     return formatted_html
 
-def process_audio(audio_file_path):
+def process_audio(audio_file):
     try:
+        st.text("Uploading file...")
+        uploaded_file = genai.upload_file(audio_file)
+        st.text("File uploaded successfully.")
         model = genai.GenerativeModel('models/gemini-1.5-pro')
         
-        with open(audio_file_path, 'rb') as audio_file:
-            uploaded_file = genai.upload_file(audio_file)
-        
+        st.text("Generating transcript...")
         transcript_prompt = """
         Transcribe the following audio file completely and accurately.
         Format the transcript as a conversation between Agent and Student.
@@ -84,7 +85,9 @@ def process_audio(audio_file_path):
         """
         transcript_response = model.generate_content([transcript_prompt, uploaded_file])
         transcript_text = transcript_response.text
+        st.text("Transcript generated successfully.")
         
+        st.text("Analyzing call...")
         analysis_prompt = """
         Based on the following customer support call transcript, please provide:
         1. A brief summary of the call (2-3 sentences)
@@ -108,6 +111,7 @@ def process_audio(audio_file_path):
         """
         analysis_response = model.generate_content([analysis_prompt, transcript_text])
         analysis_html = analysis_response.text
+        st.text("Analysis completed.")
         
         return transcript_text, analysis_html
     except Exception as e:
@@ -137,6 +141,7 @@ def main():
             progress_bar = st.progress(0)
             
             try:
+                # Create a temporary file
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
                     temp_file.write(uploaded_file.getvalue())
                     temp_file_path = temp_file.name
@@ -145,7 +150,9 @@ def main():
                     time.sleep(0.01)
                     progress_bar.progress(i)
                 
-                transcript_text, analysis_html = process_audio(temp_file_path)
+                # Pass the file path to process_audio
+                with open(temp_file_path, 'rb') as audio_file:
+                    transcript_text, analysis_html = process_audio(audio_file)
                 
                 if transcript_text and analysis_html:
                     with transcript_placeholder:
