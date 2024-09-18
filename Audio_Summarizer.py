@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import time
 import google.generativeai as genai
 import re
+from functools import partial
 
 # Ensure set_page_config is called first
 st.set_page_config(page_title="Drishti IAS Call Analysis AI", page_icon="📞", layout="wide")
@@ -30,10 +31,14 @@ st.markdown("""
     font-family: monospace;
 }
 .agent {
-    color: #0066cc;
+    background-color: #e6f2ff;
 }
 .student {
-    color: #006600;
+    background-color: #e6ffe6;
+}
+.timestamp {
+    color: #666;
+    font-size: 0.8em;
 }
 table {
     width: 100%;
@@ -45,15 +50,25 @@ th, td {
     text-align: left;
 }
 thead {
+    position: sticky;
+    top: 0;
     background-color: #f2f2f2;
+}
+.call-summary {
+    margin-bottom: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
+@st.cache_data
+def process_audio_chunk(chunk, prompt):
+    model = genai.GenerativeModel('models/gemini-1.5-pro')
+    response = model.generate_content([prompt, chunk])
+    return response.text
+
 def process_audio(audio_file):
     try:
         uploaded_file = genai.upload_file(audio_file)
-        model = genai.GenerativeModel('models/gemini-1.5-pro')
         
         transcript_prompt = """
         Transcribe the following audio file completely and accurately.
@@ -71,8 +86,6 @@ def process_audio(audio_file):
         </div>
         Use the "agent" class for Agent lines and "student" class for Student lines.
         """
-        transcript_response = model.generate_content([transcript_prompt, uploaded_file])
-        transcript_html = transcript_response.text
         
         analysis_prompt = """
         Based on the following customer support call transcript, please provide:
@@ -90,6 +103,10 @@ def process_audio(audio_file):
            - Customer Sentiment
         
         Provide the analysis as an HTML table with the following structure:
+        <div class="call-summary">
+            <h3>Call Summary</h3>
+            <p>Summary text here</p>
+        </div>
         <table>
             <thead>
                 <tr>
@@ -105,14 +122,12 @@ def process_audio(audio_file):
             </tbody>
         </table>
         
-        Include a separate section for the call summary:
-        <h3>Call Summary</h3>
-        <p>Summary text here</p>
-        
         Ensure the HTML is properly formatted and can be directly rendered in a web page.
         """
-        analysis_response = model.generate_content([analysis_prompt, transcript_html])
-        analysis_html = analysis_response.text
+        
+        with st.spinner("Processing audio..."):
+            transcript_html = process_audio_chunk(uploaded_file, transcript_prompt)
+            analysis_html = process_audio_chunk(uploaded_file, analysis_prompt)
         
         return transcript_html, analysis_html
     except Exception as e:
@@ -134,16 +149,12 @@ def main():
             with col1:
                 st.subheader("Transcript")
                 transcript_placeholder = st.empty()
-                with transcript_placeholder:
-                    with st.spinner("Generating transcript..."):
-                        time.sleep(0.1)  # Ensure spinner is displayed
 
             with col2:
                 st.subheader("Call Analysis")
                 analysis_placeholder = st.empty()
-                with analysis_placeholder:
-                    with st.spinner("Analyzing call..."):
-                        time.sleep(0.1)  # Ensure spinner is displayed
+            
+            progress_bar = st.progress(0)
             
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
                 temp_file.write(uploaded_file.getvalue())
@@ -151,10 +162,11 @@ def main():
             
             try:
                 start_time = time.time()
+                
                 transcript_html, analysis_html = process_audio(temp_file_path)
-                end_time = time.time()
                 
                 if transcript_html and analysis_html:
+                    end_time = time.time()
                     st.success(f"Analysis completed in {end_time - start_time:.2f} seconds.")
                     
                     with transcript_placeholder:
@@ -169,6 +181,7 @@ def main():
                 st.error(f"An error occurred: {str(e)}")
             finally:
                 os.unlink(temp_file_path)
+                progress_bar.empty()
 
 if __name__ == "__main__":
     main()
