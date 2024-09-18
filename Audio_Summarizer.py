@@ -113,3 +113,4 @@ def main():
                     os.unlink(temp_file_path)
 
 if __name__ == "__main__":
+    main()
