@@ -18,59 +18,46 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 # Custom CSS for styling
 st.markdown("""
 <style>
-.conversation-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.transcript-container {
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
     max-height: 500px;
     overflow-y: auto;
-    padding: 10px;
-    background-color: #f0f0f0;
-    border-radius: 10px;
 }
-.message {
-    padding: 10px;
-    border-radius: 10px;
-    max-width: 80%;
+.transcript-line {
     margin-bottom: 10px;
+    font-family: monospace;
 }
 .agent {
-    align-self: flex-start;
-    background-color: #e1f3fd;
-    color: #000000;
+    color: #0066cc;
 }
 .student {
-    align-self: flex-end;
-    background-color: #dcf8c6;
-    color: #000000;
+    color: #006600;
 }
-.time {
-    font-size: 0.8em;
-    color: #666;
-    margin-bottom: 5px;
+table {
+    width: 100%;
+    border-collapse: collapse;
 }
-.stSpinner { display: flex; justify-content: center; }
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+th {
+    background-color: #f2f2f2;
+}
 </style>
 """, unsafe_allow_html=True)
 
 def format_transcript(transcript):
-    # Split the transcript into lines
     lines = transcript.split('\n')
-    formatted_html = '<div class="conversation-container">'
-    
+    formatted_html = '<div class="transcript-container">'
     for line in lines:
-        # Use regex to match the speaker, timestamp, and content
-        match = re.match(r'(Agent|Student): \((\d+:\d+)\) (.+)', line)
+        match = re.match(r'(Agent|Student): (.+) \((\d+:\d+)-(\d+:\d+)\)', line)
         if match:
-            speaker, time, content = match.groups()
-            css_class = speaker.lower()
-            formatted_html += f'''
-            <div class="message {css_class}">
-                <div class="time">{time}</div>
-                <div>{content}</div>
-            </div>
-            '''
-    
+            speaker, content, start_time, end_time = match.groups()
+            formatted_html += f'<div class="transcript-line {speaker.lower()}"><strong>{speaker}:</strong> {content} <span style="color: #666;">({start_time}-{end_time})</span></div>'
     formatted_html += '</div>'
     return formatted_html
 
@@ -83,9 +70,9 @@ def process_audio(audio_file):
         Transcribe the following audio file completely and accurately.
         Format the transcript as a conversation between Agent and Student.
         Preserve any Hindi text in Devanagari script, and use English for English speech.
-        Include timestamps for each dialogue line in the format (MM:SS).
+        Include start and end timestamps for each dialogue line in the format (MM:SS-MM:SS).
         Return the transcript as plain text with each line in the format:
-        Speaker: (timestamp) content
+        Speaker: content (start_time-end_time)
         """
         transcript_response = model.generate_content([transcript_prompt, uploaded_file])
         transcript_text = transcript_response.text
@@ -108,6 +95,7 @@ def process_audio(audio_file):
         Provide the analysis as an HTML table with appropriate styling. 
         Include a separate section for the call summary.
         Ensure the HTML is properly formatted and can be directly rendered in a web page.
+        Use <th> for table headers and <td> for table data.
         """
         analysis_response = model.generate_content([analysis_prompt, transcript_text])
         analysis_html = analysis_response.text
