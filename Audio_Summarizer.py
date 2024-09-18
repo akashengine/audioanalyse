@@ -3,7 +3,13 @@ import google.generativeai as genai
 from pydub import AudioSegment
 import os
 import tempfile
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Configure Google API
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 # Configure Google API
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
