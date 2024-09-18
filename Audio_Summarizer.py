@@ -19,7 +19,8 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 st.markdown("""
 <style>
 .transcript-container {
-    background-color: #f0f0f0;
+    background-color: #2b2b2b;
+    color: #ffffff;
     padding: 10px;
     border-radius: 5px;
     max-height: 500px;
@@ -30,10 +31,10 @@ st.markdown("""
     font-family: monospace;
 }
 .agent {
-    color: #0066cc;
+    color: #63c5da;
 }
 .student {
-    color: #006600;
+    color: #98fb98;
 }
 table {
     width: 100%;
@@ -45,7 +46,12 @@ th, td {
     text-align: left;
 }
 th {
-    background-color: #f2f2f2;
+    background-color: #4a4a4a;
+    color: white;
+}
+td {
+    background-color: #2b2b2b;
+    color: #ffffff;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -57,7 +63,7 @@ def format_transcript(transcript):
         match = re.match(r'(Agent|Student): (.+) \((\d+:\d+)-(\d+:\d+)\)', line)
         if match:
             speaker, content, start_time, end_time = match.groups()
-            formatted_html += f'<div class="transcript-line {speaker.lower()}"><strong>{speaker}:</strong> {content} <span style="color: #666;">({start_time}-{end_time})</span></div>'
+            formatted_html += f'<div class="transcript-line {speaker.lower()}"><strong>{speaker}:</strong> {content} <span style="color: #888;">({start_time}-{end_time})</span></div>'
     formatted_html += '</div>'
     return formatted_html
 
@@ -96,6 +102,7 @@ def process_audio(audio_file):
         Include a separate section for the call summary.
         Ensure the HTML is properly formatted and can be directly rendered in a web page.
         Use <th> for table headers and <td> for table data.
+        Include a table header row with 'Parameter' and 'Value' as column headers.
         """
         analysis_response = model.generate_content([analysis_prompt, transcript_text])
         analysis_html = analysis_response.text
@@ -120,42 +127,36 @@ def main():
             with col1:
                 st.subheader("Transcript")
                 transcript_placeholder = st.empty()
-                with transcript_placeholder:
-                    with st.spinner("Generating transcript..."):
-                        time.sleep(0.1)  # Ensure spinner is displayed
 
             with col2:
                 st.subheader("Call Analysis")
                 analysis_placeholder = st.empty()
-                with analysis_placeholder:
-                    with st.spinner("Analyzing call..."):
-                        time.sleep(0.1)  # Ensure spinner is displayed
-            
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_file_path = temp_file.name
+
+            progress_bar = st.progress(0)
             
             try:
-                start_time = time.time()
-                transcript_text, analysis_html = process_audio(temp_file_path)
-                end_time = time.time()
+                for i in range(101):
+                    time.sleep(0.01)
+                    progress_bar.progress(i)
+                
+                transcript_text, analysis_html = process_audio(uploaded_file)
                 
                 if transcript_text and analysis_html:
-                    st.success(f"Analysis completed in {end_time - start_time:.2f} seconds.")
-                    
                     with transcript_placeholder:
                         formatted_transcript = format_transcript(transcript_text)
                         st.markdown(formatted_transcript, unsafe_allow_html=True)
                     
                     with analysis_placeholder:
                         st.markdown(analysis_html, unsafe_allow_html=True)
+                    
+                    st.success("Analysis completed successfully!")
                 else:
                     st.error("Failed to process the audio file. Please try again.")
             
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
             finally:
-                os.unlink(temp_file_path)
+                progress_bar.empty()
 
 if __name__ == "__main__":
     main()
