@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import time
 import json
 import pandas as pd
-
+import re
 # Load environment variables
 load_dotenv()
 
@@ -58,6 +58,48 @@ def process_audio(audio_file):
         st.error(f"Error in process_audio: {str(e)}")
         return None, None
 
+import streamlit as st
+import google.generativeai as genai
+import os
+import tempfile
+from dotenv import load_dotenv
+import time
+import json
+import pandas as pd
+import re
+
+# ... (previous code remains the same)
+
+def format_transcript(transcript):
+    lines = transcript.split('\n')
+    formatted_transcript = []
+    for line in lines:
+        if line.strip():
+            parts = line.split('  ', 1)
+            if len(parts) == 2:
+                time, text = parts
+                formatted_transcript.append(f"**[{time.strip()}]** {text.strip()}")
+            else:
+                formatted_transcript.append(line)
+    return '\n'.join(formatted_transcript)
+
+def parse_analysis(analysis):
+    # Split the analysis into summary and JSON parts
+    summary_match = re.search(r'## Call Summary:(.*?)## Call Analysis:', analysis, re.DOTALL)
+    json_match = re.search(r'```json\s*(.*?)\s*```', analysis, re.DOTALL)
+    
+    summary = summary_match.group(1).strip() if summary_match else "No summary available."
+    
+    metrics = {}
+    if json_match:
+        try:
+            metrics = json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            st.error("Failed to parse JSON metrics. Displaying raw JSON.")
+            st.code(json_match.group(1), language="json")
+    
+    return summary, metrics
+
 def main():
     st.set_page_config(page_title="Drishti IAS Call Analysis AI", page_icon="📞", layout="wide")
     
@@ -84,26 +126,22 @@ def main():
                         st.success(f"Analysis completed in {end_time - start_time:.2f} seconds.")
                         
                         st.subheader("Transcript:")
-                        st.text_area("Full Transcript", transcript, height=300)
+                        formatted_transcript = format_transcript(transcript)
+                        st.markdown(formatted_transcript)
                         
                         st.subheader("Call Analysis:")
-                        try:
-                            analysis_dict = json.loads(analysis)
-                            
-                            # Display Call Summary
-                            st.write("### Call Summary")
-                            st.write(analysis_dict.get("summary", "No summary available."))
-                            
-                            # Display Call Quality Metrics
-                            st.write("### Call Quality Metrics")
-                            metrics = {k: v for k, v in analysis_dict.items() if k != "summary"}
+                        summary, metrics = parse_analysis(analysis)
+                        
+                        st.write("### Call Summary")
+                        st.write(summary)
+                        
+                        st.write("### Call Quality Metrics")
+                        if metrics:
                             metrics_df = pd.DataFrame.from_dict(metrics, orient='index', columns=['Value'])
                             metrics_df.index.name = 'Metric'
                             st.table(metrics_df)
-                            
-                        except json.JSONDecodeError:
-                            st.error("Failed to parse the analysis results. Displaying raw output:")
-                            st.code(analysis, language="json")
+                        else:
+                            st.warning("No metrics data available.")
                     else:
                         st.error("Failed to process the audio file. Please try again.")
                 
