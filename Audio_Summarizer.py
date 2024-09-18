@@ -67,10 +67,12 @@ def format_transcript(transcript):
     formatted_html += '</div>'
     return formatted_html
 
-def process_audio(audio_file):
+def process_audio(audio_file_path):
     try:
-        uploaded_file = genai.upload_file(audio_file)
         model = genai.GenerativeModel('models/gemini-1.5-pro')
+        
+        with open(audio_file_path, 'rb') as audio_file:
+            uploaded_file = genai.upload_file(audio_file)
         
         transcript_prompt = """
         Transcribe the following audio file completely and accurately.
@@ -135,11 +137,15 @@ def main():
             progress_bar = st.progress(0)
             
             try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+                    temp_file.write(uploaded_file.getvalue())
+                    temp_file_path = temp_file.name
+
                 for i in range(101):
                     time.sleep(0.01)
                     progress_bar.progress(i)
                 
-                transcript_text, analysis_html = process_audio(uploaded_file)
+                transcript_text, analysis_html = process_audio(temp_file_path)
                 
                 if transcript_text and analysis_html:
                     with transcript_placeholder:
@@ -157,6 +163,8 @@ def main():
                 st.error(f"An error occurred: {str(e)}")
             finally:
                 progress_bar.empty()
+                if 'temp_file_path' in locals():
+                    os.unlink(temp_file_path)
 
 if __name__ == "__main__":
     main()
