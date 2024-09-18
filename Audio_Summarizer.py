@@ -75,42 +75,48 @@ def process_audio(audio_file):
         transcript_html = transcript_response.text
         
         analysis_prompt = """
-        Based on the following customer support call transcript, please provide:
-        1. A brief summary of the call (2-3 sentences)
-        2. Analyze the call based on the following fixed parameters:
-           - Call Duration
-           - Customer Name
-           - Customer ID/Batch
-           - Product/Service
-           - Call Reason
-           - Problem Resolution Status
-           - Hold Time
-           - Agent Greeting
-           - Customer Effort
-           - Customer Sentiment
-        
-        Provide the analysis as an HTML table with the following structure:
-        <table>
-            <thead>
-                <tr>
-                    <th colspan="2">Call Analysis</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <th>Parameter</th>
-                    <th>Value</th>
-                </tr>
-                <!-- Repeat for each parameter -->
-            </tbody>
-        </table>
-        
-        Include a separate section for the call summary:
-        <h3>Call Summary</h3>
-        <p>Summary text here</p>
-        
-        Ensure the HTML is properly formatted and can be directly rendered in a web page.
-        """
+            Based on the following customer support call transcript, please provide:
+            1. A brief summary of the call (2-3 sentences)
+            2. Analyze the call based on the following fixed parameters:
+               - Call Duration
+               - Customer Name
+               - Customer ID/Batch
+               - Customer Mobile Number (Extract this from the transcript, regardless of the language used)
+               - Product/Service
+               - Call Reason
+               - Problem Resolution Status
+               - Hold Time
+               - Agent Greeting
+               - Customer Effort
+               - Customer Sentiment
+            
+            Provide the analysis as an HTML table with the following structure:
+            <table>
+                <thead>
+                    <tr>
+                        <th colspan="2">Call Analysis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Value</th>
+                    </tr>
+                    <!-- Repeat for each parameter -->
+                </tbody>
+            </table>
+            
+            Include a separate section for the call summary:
+            <h3>Call Summary</h3>
+            <p>Summary text here</p>
+            
+            Important notes:
+            1. For the Customer Mobile Number, carefully extract it from the transcript. It may be spoken in any language, including Hindi numerals. Convert it to standard digits if necessary.
+            2. If the mobile number is not explicitly mentioned in the call, indicate "Not provided in call" for this field.
+            3. Ensure all Hindi text in the analysis is preserved in Devanagari script.
+            
+            Ensure the HTML is properly formatted and can be directly rendered in a web page.
+            """
         analysis_response = model.generate_content([analysis_prompt, transcript_html])
         analysis_html = analysis_response.text
         
