@@ -170,16 +170,10 @@ def main():
             with col1:
                 st.subheader("Transcript")
                 transcript_placeholder = st.empty()
-                with transcript_placeholder:
-                    with st.spinner("Generating transcript..."):
-                        time.sleep(0.1)  # Ensure spinner is displayed
 
             with col2:
                 st.subheader("Call Analysis")
                 analysis_placeholder = st.empty()
-                with analysis_placeholder:
-                    with st.spinner("Analyzing call..."):
-                        time.sleep(0.1)  # Ensure spinner is displayed
             
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
                 temp_file.write(uploaded_file.getvalue())
@@ -187,7 +181,31 @@ def main():
             
             try:
                 start_time = time.time()
-                transcript_html, analysis_html = process_audio(temp_file_path)
+                
+                with st.status("Analyzing call...", expanded=True) as status:
+                    status.update(label="Initializing...", state="running", expanded=True)
+                    time.sleep(1)  # Simulate initialization time
+                    
+                    status.update(label="Generating transcript...", state="running")
+                    transcript_progress = st.progress(0)
+                    for i in range(100):
+                        time.sleep(0.1)  # Simulate transcript generation time
+                        transcript_progress.progress(i + 1)
+                    transcript_html, _ = process_audio(temp_file_path)
+                    
+                    status.update(label="Analyzing call...", state="running")
+                    analysis_progress = st.progress(0)
+                    for i in range(100):
+                        time.sleep(0.1)  # Simulate analysis time
+                        analysis_progress.progress(i + 1)
+                    _, analysis_html = process_audio(temp_file_path)
+                    
+                    status.update(label="Calculating insights...", state="running")
+                    model = genai.GenerativeModel('models/gemini-1.5-pro')
+                    insights = calculate_tokens_and_insights(model, transcript_html, analysis_html)
+                    
+                    status.update(label="Analysis complete!", state="complete")
+
                 end_time = time.time()
                 
                 if transcript_html and analysis_html:
@@ -198,10 +216,6 @@ def main():
                     
                     with analysis_placeholder:
                         st.markdown(analysis_html, unsafe_allow_html=True)
-                    
-                    # Calculate and display token insights
-                    model = genai.GenerativeModel('models/gemini-1.5-pro')
-                    insights = calculate_tokens_and_insights(model, transcript_html, analysis_html)
                     
                     st.subheader("Token Insights")
                     if "Error" in insights:
