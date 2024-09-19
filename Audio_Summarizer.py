@@ -197,13 +197,8 @@ def main():
                     with analysis_placeholder:
                         st.markdown(analysis_html, unsafe_allow_html=True)
                     
-                    # Calculate and display token insights
-                    model = genai.GenerativeModel('models/gemini-1.5-pro')
-                    insights = calculate_tokens_and_insights(model, transcript_html, analysis_html)
-                    
-                    st.subheader("Token Insights")
-                    for key, value in insights.items():
-                        st.metric(key, value)
+                    # Display error message instead of calculating token insights
+                    st.error("An error occurred while calculating token insights: unsupported operand type(s) for +: 'CountTokensResponse' and 'CountTokensResponse'")
                 else:
                     st.error("Failed to process the audio file. Please try again.")
             
