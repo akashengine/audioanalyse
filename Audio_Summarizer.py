@@ -126,32 +126,34 @@ def process_audio(audio_file):
         return None, None
 
 def calculate_tokens_and_insights(model, transcript_html, analysis_html):
-    total_tokens = 0
-    transcript_tokens = model.count_tokens(transcript_html)
-    analysis_tokens = model.count_tokens(analysis_html)
-    total_tokens = transcript_tokens + analysis_tokens
-
-    # Extract call duration from the analysis HTML
-    call_duration_match = re.search(r'<td>Call Duration</td>\s*<td>(.*?)</td>', analysis_html)
-    call_duration = call_duration_match.group(1) if call_duration_match else "Unknown"
-
-    # Calculate tokens per minute
     try:
-        duration_parts = call_duration.split()
-        minutes = int(duration_parts[0])
-        tokens_per_minute = total_tokens / minutes if minutes > 0 else 0
-    except:
-        tokens_per_minute = 0
+        transcript_tokens = model.count_tokens(transcript_html).total_tokens
+        analysis_tokens = model.count_tokens(analysis_html).total_tokens
+        total_tokens = transcript_tokens + analysis_tokens
 
-    insights = {
-        "Total Tokens": total_tokens,
-        "Transcript Tokens": transcript_tokens,
-        "Analysis Tokens": analysis_tokens,
-        "Tokens per Minute": f"{tokens_per_minute:.2f}",
-        "Call Duration": call_duration
-    }
+        # Extract call duration from the analysis HTML
+        call_duration_match = re.search(r'<td>Call Duration</td>\s*<td>(.*?)</td>', analysis_html)
+        call_duration = call_duration_match.group(1) if call_duration_match else "Unknown"
 
-    return insights
+        # Calculate tokens per minute
+        try:
+            duration_parts = call_duration.split()
+            minutes = int(duration_parts[0])
+            tokens_per_minute = total_tokens / minutes if minutes > 0 else 0
+        except:
+            tokens_per_minute = 0
+
+        insights = {
+            "Total Tokens": total_tokens,
+            "Transcript Tokens": transcript_tokens,
+            "Analysis Tokens": analysis_tokens,
+            "Tokens per Minute": f"{tokens_per_minute:.2f}",
+            "Call Duration": call_duration
+        }
+
+        return insights
+    except Exception as e:
+        return {"Error": str(e)}
 
 def main():
     st.title("📞 Drishti IAS Call Analysis AI")
@@ -197,8 +199,16 @@ def main():
                     with analysis_placeholder:
                         st.markdown(analysis_html, unsafe_allow_html=True)
                     
-                    # Display error message instead of calculating token insights
-                    st.error("An error occurred while calculating token insights: unsupported operand type(s) for +: 'CountTokensResponse' and 'CountTokensResponse'")
+                    # Calculate and display token insights
+                    model = genai.GenerativeModel('models/gemini-1.5-pro')
+                    insights = calculate_tokens_and_insights(model, transcript_html, analysis_html)
+                    
+                    st.subheader("Token Insights")
+                    if "Error" in insights:
+                        st.error(f"An error occurred while calculating token insights: {insights['Error']}")
+                    else:
+                        for key, value in insights.items():
+                            st.metric(key, value)
                 else:
                     st.error("Failed to process the audio file. Please try again.")
             
