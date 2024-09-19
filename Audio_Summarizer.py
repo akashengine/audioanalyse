@@ -125,6 +125,34 @@ def process_audio(audio_file):
         st.error(f"Error in process_audio: {str(e)}")
         return None, None
 
+def calculate_tokens_and_insights(model, transcript_html, analysis_html):
+    total_tokens = 0
+    transcript_tokens = model.count_tokens(transcript_html)
+    analysis_tokens = model.count_tokens(analysis_html)
+    total_tokens = transcript_tokens + analysis_tokens
+
+    # Extract call duration from the analysis HTML
+    call_duration_match = re.search(r'<td>Call Duration</td>\s*<td>(.*?)</td>', analysis_html)
+    call_duration = call_duration_match.group(1) if call_duration_match else "Unknown"
+
+    # Calculate tokens per minute
+    try:
+        duration_parts = call_duration.split()
+        minutes = int(duration_parts[0])
+        tokens_per_minute = total_tokens / minutes if minutes > 0 else 0
+    except:
+        tokens_per_minute = 0
+
+    insights = {
+        "Total Tokens": total_tokens,
+        "Transcript Tokens": transcript_tokens,
+        "Analysis Tokens": analysis_tokens,
+        "Tokens per Minute": f"{tokens_per_minute:.2f}",
+        "Call Duration": call_duration
+    }
+
+    return insights
+
 def main():
     st.title("📞 Drishti IAS Call Analysis AI")
     st.write("Upload an MP3 file of a customer support call to get a transcript and quality metrics.")
@@ -168,13 +196,22 @@ def main():
                     
                     with analysis_placeholder:
                         st.markdown(analysis_html, unsafe_allow_html=True)
+                    
+                    # Calculate and display token insights
+                    model = genai.GenerativeModel('models/gemini-1.5-pro')
+                    insights = calculate_tokens_and_insights(model, transcript_html, analysis_html)
+                    
+                    st.subheader("Token Insights")
+                    for key, value in insights.items():
+                        st.metric(key, value)
                 else:
                     st.error("Failed to process the audio file. Please try again.")
             
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
             finally:
-                os.unlink(temp_file_path)
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
 
 if __name__ == "__main__":
     main()
