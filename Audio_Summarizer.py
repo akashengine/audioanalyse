@@ -45,7 +45,7 @@ th, td {
     text-align: left;
 }
 thead {
-    background-color: #f2f2f2;
+    background-color: #159f22;
 }
 </style>
 """, unsafe_allow_html=True)
